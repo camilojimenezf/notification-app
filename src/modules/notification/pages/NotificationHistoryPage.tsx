@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNotificationsHistory } from "../hooks/useNotificationHistory";
 import { format } from "date-fns";
 import {
@@ -10,6 +11,7 @@ import {
   Clock,
   Search,
   Filter,
+  Eye,
 } from "lucide-react";
 
 import {
@@ -25,6 +27,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
@@ -40,8 +43,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-// --- Helper Components ---
+import { NotificationDetailsModal } from "../components/NotificationDetailModal";
+import type { NotificationEvent } from "../interfaces/notification-event.interface";
 
+// --- Helper Components (Same as before) ---
 const StatusBadge = ({ status }: { status: string }) => {
   const styles = {
     SUCCESS:
@@ -49,15 +54,12 @@ const StatusBadge = ({ status }: { status: string }) => {
     FAILED: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100",
     PENDING: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
   };
-
   const icons = {
     SUCCESS: <CheckCircle2 className="w-3 h-3 mr-1" />,
     FAILED: <XCircle className="w-3 h-3 mr-1" />,
     PENDING: <Clock className="w-3 h-3 mr-1" />,
   };
-
   const key = status as keyof typeof styles;
-
   return (
     <Badge
       variant="outline"
@@ -79,8 +81,6 @@ const ChannelIcon = ({ type }: { type: string }) => {
       return <Mail className="w-4 h-4 text-neutral-500" />;
     case "sms":
       return <Smartphone className="w-4 h-4 text-neutral-500" />;
-    case "test":
-      return <MessageSquare className="w-4 h-4 text-neutral-500" />;
     default:
       return <MessageSquare className="w-4 h-4 text-neutral-500" />;
   }
@@ -90,8 +90,10 @@ const ChannelIcon = ({ type }: { type: string }) => {
 
 export const NotificationHistoryPage = () => {
   const { data, isLoading } = useNotificationsHistory();
+  const [selectedEvent, setSelectedEvent] = useState<NotificationEvent | null>(
+    null
+  );
 
-  // Helper to format dates safely
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), "MMM d, yyyy • HH:mm");
@@ -103,29 +105,28 @@ export const NotificationHistoryPage = () => {
 
   return (
     <div className="p-8 space-y-8 bg-neutral-50/50 min-h-screen">
-      {/* Page Header */}
+      {/* Header & Filters (Same as before) */}
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
-            Historial de notificaciones
+            Notification History
           </h1>
           <p className="text-neutral-500 mt-1">
-            Monitorea los estados de las notificaciones
+            Monitor delivery status and audit logs.
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="h-8 bg-white">
-            <Filter className="w-3.5 h-3.5 mr-2 text-neutral-500" />
-            Filter
+            <Filter className="w-3.5 h-3.5 mr-2 text-neutral-500" /> Filter
           </Button>
           <Button variant="outline" size="sm" className="h-8 bg-white">
-            <Search className="w-3.5 h-3.5 mr-2 text-neutral-500" />
-            Search
+            <Search className="w-3.5 h-3.5 mr-2 text-neutral-500" /> Search
           </Button>
         </div>
       </div>
 
       <Card className="border-neutral-200 shadow-sm bg-white overflow-hidden">
+        {/* Table Header (Same as before) */}
         <CardHeader className="border-b border-neutral-100 px-6 py-4 bg-white">
           <div className="flex items-center justify-between">
             <div>
@@ -163,7 +164,7 @@ export const NotificationHistoryPage = () => {
             </TableHeader>
             <TableBody>
               {isLoading
-                ? // Loading Skeletons
+                ? // Loading Skeletons (Same as before)
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell className="pl-6">
@@ -183,12 +184,13 @@ export const NotificationHistoryPage = () => {
                       </TableCell>
                     </TableRow>
                   ))
-                : data?.data.map((item) => (
+                : // Type cast data.data to NotificationEvent[] if needed based on your hook return type
+                  (data?.data as NotificationEvent[]).map((item) => (
                     <TableRow
                       key={item.id}
                       className="group hover:bg-neutral-50/50 border-neutral-100 transition-colors"
                     >
-                      {/* Template Info */}
+                      {/* ... (Template, Channel, Recipient, Status, Date TableCells remain exactly the same) ... */}
                       <TableCell className="pl-6 py-4">
                         <div className="flex flex-col gap-1">
                           <span className="font-medium text-sm text-neutral-900 truncate max-w-[200px]">
@@ -199,8 +201,6 @@ export const NotificationHistoryPage = () => {
                           </span>
                         </div>
                       </TableCell>
-
-                      {/* Channel */}
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="p-1.5 bg-neutral-100 rounded-md border border-neutral-200">
@@ -211,8 +211,6 @@ export const NotificationHistoryPage = () => {
                           </span>
                         </div>
                       </TableCell>
-
-                      {/* Recipient / User */}
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8 border border-neutral-200">
@@ -230,8 +228,6 @@ export const NotificationHistoryPage = () => {
                           </div>
                         </div>
                       </TableCell>
-
-                      {/* Status */}
                       <TableCell>
                         <StatusBadge status={item.state} />
                         {item.state === "FAILED" && (
@@ -240,28 +236,34 @@ export const NotificationHistoryPage = () => {
                           </span>
                         )}
                       </TableCell>
-
-                      {/* Date */}
                       <TableCell className="text-right pr-6">
                         <span className="text-sm text-neutral-600">
                           {formatDate(item.createdAt)}
                         </span>
                       </TableCell>
 
-                      {/* Actions Menu */}
+                      {/* Actions Menu - UPDATED */}
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
-                              className="h-8 w-8 p-0 hover:bg-neutral-200"
+                              className="h-8 w-8 p-0 hover:bg-neutral-200 data-[state=open]:bg-neutral-200"
                             >
                               <span className="sr-only">Open menu</span>
                               <MoreHorizontal className="h-4 w-4 text-neutral-500" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" className="w-40">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem
+                              onClick={() => setSelectedEvent(item)}
+                              className="cursor-pointer font-medium"
+                            >
+                              <Eye className="w-4 h-4 mr-2 text-neutral-500" />{" "}
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() =>
                                 navigator.clipboard.writeText(item.id)
@@ -276,8 +278,6 @@ export const NotificationHistoryPage = () => {
                             >
                               Copy Dedup Key
                             </DropdownMenuItem>
-                            <div className="h-px bg-neutral-100 my-1" />
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -286,8 +286,7 @@ export const NotificationHistoryPage = () => {
             </TableBody>
           </Table>
         </CardContent>
-
-        {/* Pagination Footer */}
+        {/* Pagination Footer (Same as before) */}
         {!isLoading && data?.meta && (
           <CardFooter className="border-t border-neutral-100 bg-neutral-50/30 px-6 py-4 flex items-center justify-between">
             <div className="text-xs text-neutral-500">
@@ -315,6 +314,12 @@ export const NotificationHistoryPage = () => {
           </CardFooter>
         )}
       </Card>
+
+      <NotificationDetailsModal
+        open={!!selectedEvent}
+        data={selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+      />
     </div>
   );
 };
